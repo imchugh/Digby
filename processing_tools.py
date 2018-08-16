@@ -6,6 +6,8 @@ Created on Thu May  3 15:19:55 2018
 @author: ian
 """
 import datetime as dt
+import matplotlib.pyplot as plt
+import numpy as np
 import os
 import pandas as pd
 import pdb
@@ -21,6 +23,7 @@ class digby_data(object):
         
         self.parent_directory = parent_directory
         self.file_substrings = ['Flux_CSIFormat', 'Flux_NOTES']
+        self.dataframe = self.make_new_df()
     #--------------------------------------------------------------------------
 
     #--------------------------------------------------------------------------
@@ -63,7 +66,7 @@ class digby_data(object):
                 l.append(zip(sub_header_list, sub_units_list))
         first_set = set(l[0])
         for next_set in l[1:]: (first_set.intersection_update(set(next_set)))
-        return next_set
+        return dict(next_set)
     #--------------------------------------------------------------------------
 
     #--------------------------------------------------------------------------
@@ -88,7 +91,6 @@ class digby_data(object):
         file_dict = self.get_file_dictionary()
         df_dict = {}
         for snippet in sorted(file_dict.keys()):
-            vars_list = self.get_common_variables(snippet)
             df = pd.concat(map(lambda x: pd.read_csv(x, skiprows = [0, 2, 3], 
                                                      na_values = 'NAN'),
                                file_dict[snippet]))
@@ -96,8 +98,6 @@ class digby_data(object):
                            df.TIMESTAMP)
             df.drop('TIMESTAMP', axis = 1, inplace = True)
             if 'RECORD' in df.columns: df.drop('RECORD', axis = 1, inplace = True)
-            order = [x for x in df.columns if x in vars_list]
-            pdb.set_trace()
             df_dict[snippet] = df
         df = df_dict['Flux_CSIFormat'].join(df_dict['Flux_NOTES'], rsuffix = '_2')
         df.drop_duplicates(inplace = True)
@@ -122,6 +122,36 @@ class digby_data(object):
         #    f.writelines(header_list)
         #    df.to_csv(f, header = False)
         df.to_csv(output_file, index_label = 'date_time')        
+
+
+    def plot_time_series(self, variable, diel_average = False):
+
+        if not variable in self.dataframe.columns: 
+            raise KeyError('No variable called {}'.format(variable))        
+        a = self.get_common_variables(self.file_substrings[0])
+        b = self.get_common_variables(self.file_substrings[1])
+        a.update(b)
+        if diel_average:
+            df = self.dataframe[variable].groupby([lambda x: x.hour, 
+                                                   lambda y: y.minute]).mean()
+            df = pd.DataFrame(df)
+            df.index = np.linspace(0, 23.5, 48)
+            xlab = 'Time'
+        else:
+            df = self.dataframe
+            xlab = 'Date'
+        fig, ax = plt.subplots(1, figsize = (12, 8))
+        fig.patch.set_facecolor('white')
+        ax.set_ylabel('${0}\/({1})$'.format(variable, a[variable]), fontsize = 22)
+        ax.set_xlabel('${}$'.format(xlab), fontsize = 22)
+        ax.tick_params(axis = 'x', labelsize = 14)
+        ax.tick_params(axis = 'y', labelsize = 14)
+        ax.yaxis.set_ticks_position('left')
+        ax.xaxis.set_ticks_position('bottom')    
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.plot(df[variable])
+
 
 #sonic_correction = 270
 #
