@@ -12,10 +12,6 @@ import os
 import pandas as pd
 import pdb
 
-input_path = '/media/ian/24B8-140D/Converted/'
-output_path = '/media/ian/24B8-140D/Collated/'
-
-
 class digby_data(object):
         
     #--------------------------------------------------------------------------
@@ -72,52 +68,12 @@ class digby_data(object):
         c = a + b
         l1 = np.array([x[0] for x in c])
         l2 = np.array([x[1] for x in c])
-        idx = np.argsort(np.array(map(lambda x: x.lower(), list(l1))))
-        l1, l2 = list(l1[idx]), list(l2[idx])
         units_dict = dict(zip(l1, l2))
-        new_l1 = list(set(l1))
-        new_l2 = [units_dict[x] for x in new_l1]
-        for var in repeats:
-            indices = [i for i, x in enumerate(l1) if x == var]                
-    #--------------------------------------------------------------------------
-
-    #--------------------------------------------------------------------------
-    def _get_common_variables(self, substring):
-        
-        file_dict = self.get_file_dictionary()
-        
-        l = []
-        for path in file_dict[substring]:
-            with open(path) as f:
-                f.readline()
-                header = f.readline()
-                sub_header_list = [x.replace('"', '').strip() 
-                                   for x in header.split(',')]
-                record_flag = 'RECORD' in sub_header_list
-                if record_flag:
-                    idx = sub_header_list.index('RECORD')
-                    sub_header_list.remove('RECORD')
-                units = f.readline()
-                sub_units_list = [x.replace('"', '').strip() 
-                                  for x in units.split(',')]
-                if record_flag: del sub_units_list[idx]
-                l.append(zip(sub_header_list, sub_units_list))
-        first_set = set(l[0])
-        for next_set in l[1:]: (first_set.intersection_update(set(next_set)))
-        return next_set
-    #--------------------------------------------------------------------------
-
-    #--------------------------------------------------------------------------
-    def get_common_variables(self):
-        """Lists all of the variables common to all files"""
-        
-        a = self._get_common_variables(self.file_substrings[0])
-        b = self._get_common_variables(self.file_substrings[1])
-        c = a + b
-        l1 = [x[0] for x in c]
-        l2 = [x[1] for x in c]
+        l1 = list(set(l1))
+        l2 = [units_dict[x] for x in l1]
         idx = np.argsort(np.array(map(lambda x: x.lower(), l1)))
-        return zip(np.array(l1)[idx], np.array(l2)[idx])
+        l1, l2 = list(np.array(l1)[idx]), list(np.array(l2)[idx])
+        return zip(l1, l2)
     #--------------------------------------------------------------------------
 
     #--------------------------------------------------------------------------
@@ -136,19 +92,17 @@ class digby_data(object):
 
     #--------------------------------------------------------------------------
     def make_new_df(self):
-        """Opens all csv files and converts to dataframe, handles dupes and 
-           missing data and forces all data to numeric"""
+        """Opens all csv files and concatenates to dataframe, handles dupes and 
+           missing data, forces all data to numeric and alphabetises"""
         
         file_dict = self.get_file_dictionary()
         df_dict = {}
         for snippet in sorted(file_dict.keys()):
             df = pd.concat(map(lambda x: pd.read_csv(x, skiprows = [0, 2, 3], 
                                                      na_values = 'NAN'),
-                               file_dict[snippet]))
+                               file_dict[snippet]), sort = True)
             df.index = map(lambda x: dt.datetime.strptime(x, '%Y-%m-%d %H:%M:%S'), 
                            df.TIMESTAMP)
-            df.drop('TIMESTAMP', axis = 1, inplace = True)
-            if 'RECORD' in df.columns: df.drop('RECORD', axis = 1, inplace = True)
             df_dict[snippet] = df
         df = df_dict['Flux_CSIFormat'].join(df_dict['Flux_NOTES'], rsuffix = '_2')
         df.drop_duplicates(inplace = True)
@@ -160,26 +114,32 @@ class digby_data(object):
         for column in df.columns:
             df.loc[:, column] = pd.to_numeric(df[column], errors = 'ignore')
         self._correct_sonic(df)
+        new_order = [x[0] for x in self.get_all_variables()]
+        df = df[new_order]
+        df.drop(['TIMESTAMP', 'RECORD'], axis = 1, inplace = True)
         return df
     #--------------------------------------------------------------------------
     
     #--------------------------------------------------------------------------
-
     def write_df_to_file(self, output_path, include_units = True):
         
         output_file = os.path.join(output_path, 'flux_data.csv')
         df = self.make_new_df()
-        #with open(output_file, 'w') as f:
-        #    f.writelines(header_list)
-        #    df.to_csv(f, header = False)
-        df.to_csv(output_file, index_label = 'date_time')        
+        tuple_list = self.get_all_variables()
+        header_list = ['TIMESTAMP,' + ','.join([x[0] for x in tuple_list]) + '\n',
+                        'TIME_UNITS,' + ','.join([x[1] for x in tuple_list]) + '\n']
+        if not include_units: header_list = header_list[0]
+        with open(output_file, 'w') as f:
+            f.writelines(header_list)
+            df.to_csv(f, header = False)     
+    #--------------------------------------------------------------------------
 
-
+    #--------------------------------------------------------------------------
     def plot_time_series(self, variable, diel_average = False):
 
         if not variable in self.dataframe.columns: 
             raise KeyError('No variable called {}'.format(variable))        
-        a = dict(self.get_common_variables())
+        a = dict(self.get_all_variables())
         if diel_average:
             df = self.dataframe[variable].groupby([lambda x: x.hour, 
                                                    lambda y: y.minute]).mean()
@@ -200,21 +160,4 @@ class digby_data(object):
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.plot(df[variable])
-
-
-#sonic_correction = 270
-#
-#df.WD = df.WD - (360 - sonic_correction)
-#df.loc[df.WD < 0, 'WD'] = 360 + df.loc[df.WD < 0, 'WD']
-#
-#header_dict = {}
-#for key in f_dict.keys():
-#    f = open(sorted(f_dict[key])[0])
-#    header_dict[key] = f.readlines()[:4]
-#    f.close()
-#header_list = []
-#header_list.append(header_dict['Flux_CSIFormat'][0])
-#for i in range(1, 4):
-#    csi_line = header_dict['Flux_CSIFormat'][i].rstrip() + ','
-#    notes_line = ','.join(header_dict['Flux_NOTES'][i].rstrip().split(',')[1:]) + '\r\n'
-#    header_list.append(''.join([csi_line, notes_line]))
+    #--------------------------------------------------------------------------
