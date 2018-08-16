@@ -44,10 +44,10 @@ class digby_data(object):
     #--------------------------------------------------------------------------
 
     #--------------------------------------------------------------------------
-    def get_common_variables(self, substring):
-        """Lists all of the variables common to all files"""
+    def _get_common_variables(self, substring):
         
         file_dict = self.get_file_dictionary()
+        
         l = []
         for path in file_dict[substring]:
             with open(path) as f:
@@ -66,7 +66,20 @@ class digby_data(object):
                 l.append(zip(sub_header_list, sub_units_list))
         first_set = set(l[0])
         for next_set in l[1:]: (first_set.intersection_update(set(next_set)))
-        return dict(next_set)
+        return next_set
+    #--------------------------------------------------------------------------
+
+    #--------------------------------------------------------------------------
+    def get_common_variables(self):
+        """Lists all of the variables common to all files"""
+        
+        a = self._get_common_variables(self.file_substrings[0])
+        b = self._get_common_variables(self.file_substrings[1])
+        c = a + b
+        l1 = [x[0] for x in c]
+        l2 = [x[1] for x in c]
+        idx = np.argsort(np.array(map(lambda x: x.lower(), l1)))
+        return zip(np.array(l1)[idx], np.array(l2)[idx])
     #--------------------------------------------------------------------------
 
     #--------------------------------------------------------------------------
