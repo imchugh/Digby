@@ -44,6 +44,44 @@ class digby_data(object):
     #--------------------------------------------------------------------------
 
     #--------------------------------------------------------------------------
+    def _get_all_variables(self, substring):
+        
+        file_dict = self.get_file_dictionary()
+        variables_list, tuple_list = [], []
+        for path in file_dict[substring]:
+            with open(path) as f:
+                f.readline()
+                header = [x.replace('"', '').strip() 
+                          for x in f.readline().split(',')]
+                units = [x.replace('"', '').strip() 
+                         for x in f.readline().split(',')]
+            lookup_dict = dict(zip(header, units))
+            new_vars = list(set(header) ^ set(variables_list))
+            new_units = map(lambda x: lookup_dict[x], new_vars)
+            tuple_list += zip(new_vars, new_units)
+            variables_list += new_vars
+        return sorted(tuple_list)
+    #--------------------------------------------------------------------------
+
+    #--------------------------------------------------------------------------
+    def get_all_variables(self):
+        """Lists all of the variables across all files"""
+        
+        a = self._get_all_variables(self.file_substrings[0])
+        b = self._get_all_variables(self.file_substrings[1])
+        c = a + b
+        l1 = np.array([x[0] for x in c])
+        l2 = np.array([x[1] for x in c])
+        idx = np.argsort(np.array(map(lambda x: x.lower(), list(l1))))
+        l1, l2 = list(l1[idx]), list(l2[idx])
+        units_dict = dict(zip(l1, l2))
+        new_l1 = list(set(l1))
+        new_l2 = [units_dict[x] for x in new_l1]
+        for var in repeats:
+            indices = [i for i, x in enumerate(l1) if x == var]                
+    #--------------------------------------------------------------------------
+
+    #--------------------------------------------------------------------------
     def _get_common_variables(self, substring):
         
         file_dict = self.get_file_dictionary()
@@ -127,7 +165,7 @@ class digby_data(object):
     
     #--------------------------------------------------------------------------
 
-    def write_df_to_file(self, output_path):
+    def write_df_to_file(self, output_path, include_units = True):
         
         output_file = os.path.join(output_path, 'flux_data.csv')
         df = self.make_new_df()
@@ -141,9 +179,7 @@ class digby_data(object):
 
         if not variable in self.dataframe.columns: 
             raise KeyError('No variable called {}'.format(variable))        
-        a = self.get_common_variables(self.file_substrings[0])
-        b = self.get_common_variables(self.file_substrings[1])
-        a.update(b)
+        a = dict(self.get_common_variables())
         if diel_average:
             df = self.dataframe[variable].groupby([lambda x: x.hour, 
                                                    lambda y: y.minute]).mean()
