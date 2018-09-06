@@ -43,20 +43,16 @@ class digby_data(object):
     def _get_all_variables(self, substring):
         
         file_dict = self.get_file_dictionary()
-        variables_list, tuple_list = [], []
+        variables_list, units_list = [], []
         for path in file_dict[substring]:
             with open(path) as f:
                 f.readline()
-                header = [x.replace('"', '').strip() 
-                          for x in f.readline().split(',')]
-                units = [x.replace('"', '').strip() 
-                         for x in f.readline().split(',')]
-            lookup_dict = dict(zip(header, units))
-            new_vars = list(set(header) ^ set(variables_list))
-            new_units = map(lambda x: lookup_dict[x], new_vars)
-            tuple_list += zip(new_vars, new_units)
-            variables_list += new_vars
-        return sorted(tuple_list)
+                variables_list += [x.replace('"', '').strip() 
+                                   for x in f.readline().split(',')]
+                units_list += [x.replace('"', '').strip() 
+                               for x in f.readline().split(',')]
+        tuple_list = zip(variables_list, units_list)
+        return sorted(list(set(tuple_list)))
     #--------------------------------------------------------------------------
 
     #--------------------------------------------------------------------------
