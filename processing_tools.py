@@ -51,8 +51,7 @@ class digby_data(object):
                                    for x in f.readline().split(',')]
                 units_list += [x.replace('"', '').strip() 
                                for x in f.readline().split(',')]
-        tuple_list = zip(variables_list, units_list)
-        return sorted(list(set(tuple_list)))
+        return sorted(list(set(zip(variables_list, units_list))))
     #--------------------------------------------------------------------------
 
     #--------------------------------------------------------------------------
@@ -69,6 +68,11 @@ class digby_data(object):
         l2 = [units_dict[x] for x in l1]
         idx = np.argsort(np.array(map(lambda x: x.lower(), l1)))
         l1, l2 = list(np.array(l1)[idx]), list(np.array(l2)[idx])
+        for var in ['RECORD', 'TIMESTAMP']:
+            idx = l1.index(var)
+            unit = l2[idx]
+            l1.remove(var)
+            l2.remove(unit)
         return zip(l1, l2)
     #--------------------------------------------------------------------------
 
@@ -112,7 +116,6 @@ class digby_data(object):
         self._correct_sonic(df)
         new_order = [x[0] for x in self.get_all_variables()]
         df = df[new_order]
-        df.drop(['TIMESTAMP', 'RECORD'], axis = 1, inplace = True)
         return df
     #--------------------------------------------------------------------------
     
@@ -120,14 +123,12 @@ class digby_data(object):
     def write_df_to_file(self, output_path, include_units = True):
         
         output_file = os.path.join(output_path, 'flux_data.csv')
-        df = self.make_new_df()
-        tuple_list = self.get_all_variables()
-        header_list = ['TIMESTAMP,' + ','.join([x[0] for x in tuple_list]) + '\n',
-                        'TIME_UNITS,' + ','.join([x[1] for x in tuple_list]) + '\n']
-        if not include_units: header_list = header_list[0]
-        with open(output_file, 'w') as f:
-            f.writelines(header_list)
-            df.to_csv(f, header = False)     
+        df = self.dataframe.copy()
+        if include_units:
+            tuple_list = self.get_all_variables()
+            header_list = pd.MultiIndex.from_tuples(tuple_list)
+            df.columns = header_list
+        df.to_csv(output_file, index_label = 'Date_time')
     #--------------------------------------------------------------------------
 
     #--------------------------------------------------------------------------
