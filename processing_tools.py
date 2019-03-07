@@ -133,11 +133,9 @@ class digby_data(object):
 
     #--------------------------------------------------------------------------
     def plot_ustar(self, num_bins = 30):
-        
-        num_bins = 30
-        
+               
         noct_df = self.dataframe.loc[self.dataframe.SW_IN < 20]
-        noct_df = noct_df.loc[noct_df.FC_QC < 7]
+        noct_df = noct_df.loc[noct_df.FC_QC < 9]
         noct_df.loc[(noct_df.FC<-10)|(noct_df.FC>20),'FC']=np.nan
         noct_df['ustar_cat'] = pd.qcut(self.dataframe.USTAR, num_bins, 
                                        labels = np.linspace(1, num_bins, num_bins))
