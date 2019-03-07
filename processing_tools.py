@@ -132,6 +132,31 @@ class digby_data(object):
     #--------------------------------------------------------------------------
 
     #--------------------------------------------------------------------------
+    def plot_ustar(self, num_bins = 30):
+        
+        num_bins = 30
+        
+        noct_df = self.dataframe.loc[self.dataframe.SW_IN < 20]
+        noct_df = noct_df.loc[noct_df.FC_QC < 7]
+        noct_df.loc[(noct_df.FC<-10)|(noct_df.FC>20),'FC']=np.nan
+        noct_df['ustar_cat'] = pd.qcut(self.dataframe.USTAR, num_bins, 
+                                       labels = np.linspace(1, num_bins, num_bins))
+        means_df = noct_df.groupby('ustar_cat').mean()
+        fig, ax = plt.subplots(1, figsize = (12, 8))
+        fig.patch.set_facecolor('white')
+        ax.set_ylabel(r'$R_e\/(\mu mol\/m^{-2}\/s^{-1})$', fontsize = 22)
+        ax.set_xlabel('$u_{*}\/(m\/s^{-1})$', fontsize = 22)
+        ax.tick_params(axis = 'x', labelsize = 14)
+        ax.tick_params(axis = 'y', labelsize = 14)
+        ax.yaxis.set_ticks_position('left')
+        ax.xaxis.set_ticks_position('bottom')    
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.axvline(0.248, color = 'grey')
+        ax.plot(means_df.USTAR, means_df.FC, marker = 'o', mfc = '0.5', color = 'grey')
+    #--------------------------------------------------------------------------
+
+    #--------------------------------------------------------------------------
     def plot_time_series(self, variable, diel_average = False):
 
         if not variable in self.dataframe.columns: 
@@ -148,7 +173,7 @@ class digby_data(object):
             xlab = 'Date'
         fig, ax = plt.subplots(1, figsize = (12, 8))
         fig.patch.set_facecolor('white')
-        ax.set_ylabel('${0}\/({1})$'.format(variable, a[variable]), fontsize = 22)
+        ax.set_ylabel('{0} ({1})'.format(variable, a[variable]), fontsize = 22)
         ax.set_xlabel('${}$'.format(xlab), fontsize = 22)
         ax.tick_params(axis = 'x', labelsize = 14)
         ax.tick_params(axis = 'y', labelsize = 14)
