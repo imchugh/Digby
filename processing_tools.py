@@ -120,15 +120,27 @@ class digby_data(object):
     #--------------------------------------------------------------------------
     
     #--------------------------------------------------------------------------
-    def write_df_to_file(self, output_path, include_units = True):
+    def write_df_to_file(self, output_path, include_units = True, 
+                         by_year = False):
+        """Write dataframe out to directory, by year if requested"""
         
-        output_file = os.path.join(output_path, 'flux_data.csv')
         df = self.dataframe.copy()
         if include_units:
             tuple_list = self.get_all_variables()
             header_list = pd.MultiIndex.from_tuples(tuple_list)
             df.columns = header_list
-        df.to_csv(output_file, index_label = 'Date_time')
+        if by_year:
+            df.index = df.index - dt.timedelta(minutes = 30)
+            year_list = np.unique(df.index.year)
+            for year in year_list:
+                fname = os.path.join(output_path,
+                                     'flux_data_{}.csv'.format(str(year)))
+                year_df = df.loc[str(year)]
+                year_df.index = year_df.index + dt.timedelta(minutes = 30)
+                year_df.to_csv(fname, index_label = 'Date_time')
+            return    
+        fname = os.path.join(output_path, 'flux_data.csv')
+        df.to_csv(fname, index_label = 'Date_time')
     #--------------------------------------------------------------------------
 
     #--------------------------------------------------------------------------
@@ -136,7 +148,7 @@ class digby_data(object):
                
         noct_df = self.dataframe.loc[self.dataframe.SW_IN < 20]
         noct_df = noct_df.loc[noct_df.FC_QC < 9]
-        noct_df.loc[(noct_df.FC<-10)|(noct_df.FC>20),'FC']=np.nan
+        noct_df.loc[(noct_df.FC < -10) | (noct_df.FC > 30),'FC'] = np.nan
         noct_df['ustar_cat'] = pd.qcut(self.dataframe.USTAR, num_bins, 
                                        labels = np.linspace(1, num_bins, num_bins))
         means_df = noct_df.groupby('ustar_cat').mean()
